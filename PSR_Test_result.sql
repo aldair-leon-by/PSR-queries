@@ -38,21 +38,38 @@ WHERE MSG_EVNT.CRTD_AT > @created_at and MSG_EVNT.CRTD_AT < @created_at_end
 order by MSG_EVNT.CRTD_AT DESC
 ;
 
+DECLARE @created_at datetime2;
+DECLARE @created_at_end datetime2;
+
+SET @created_at = '2021-08-20 14:10:00'
+SET @created_at_end = '2021-08-20 15:00:00'
+
+
 SELECT
     COUNT(MSG_HDR.MSG_TYPE) AS NUMBER_PROCESS_MESSAGES,
-    MSG_HDR.MSG_TYPE, MIN(MSG_EVNT.CRTD_AT) AS FIRST_CREATED,
-    MIN(MSG_HDR.LST_UPDT_AT) AS FIRST_FINISHED, MAX(MSG_EVNT.CRTD_AT) AS LAST_CREATED,
-    MAX(MSG_HDR.LST_UPDT_AT) AS LAST_FINISHED,
+    MSG_HDR.MSG_TYPE,
+    MIN(MSG_EVNT.CRTD_AT) AS 'Ingestion Service started',
+    MAX(MSG_HDR.LST_UPDT_AT) AS 'Ingestion Service finished',
     FORMAT(MAX(MSG_HDR.LST_UPDT_AT) -  MIN(MSG_EVNT.CRTD_AT), 'mm:ss.ff') AS TOTAL_TIME
 FROM CONNECT_MS.MS_MSG_EVNT AS MSG_EVNT JOIN CONNECT_MS.MS_MSG_HDR AS MSG_HDR ON MSG_EVNT.MSG_HDR_ID = MSG_HDR.MSG_HDR_ID
 WHERE MSG_EVNT.CRTD_AT >  @created_at and MSG_EVNT.CRTD_AT < @created_at_end AND MSG_EVNT.STATUS = 'Received' AND MSG_HDR.MDL_TYPE LIKE '%BYDM%'
 group by MSG_HDR.MSG_TYPE,MSG_EVNT.STATUS
 ;
 
+DECLARE @created_at datetime2;
+DECLARE @created_at_end datetime2;
+
+SET @created_at = '2021-08-20 14:10:00'
+SET @created_at_end = '2021-08-20 15:00:00'
+
+
 SELECT
-    MSG_EVNT.CRTD_AT,
-    MSG_HDR.LST_UPDT_AT,
     MSG_HDR.MSG_TYPE,
+    MSG_HDR.CRNT_STATUS AS 'Ingestion Service Status',
+    MSG_EVNT.CRTD_AT AS 'Ingest Service started',
+    MSG_HDR.LST_UPDT_AT AS 'Ingest Service finished',
+    MSG_HDR.MDL_TYPE AS 'Format File',
+    MSG_HDR.MSG_ID,
     FORMAT( (MSG_HDR.LST_UPDT_AT) -  (MSG_EVNT.CRTD_AT), 'mm:ss.ff') AS TOTAL_TIME
 FROM CONNECT_MS.MS_MSG_EVNT AS MSG_EVNT JOIN CONNECT_MS.MS_MSG_HDR AS MSG_HDR ON MSG_EVNT.MSG_HDR_ID = MSG_HDR.MSG_HDR_ID
         AND MSG_EVNT.STATUS = 'Received ' AND MSG_HDR.MDL_TYPE LIKE '%BYDM%'
@@ -65,37 +82,49 @@ order by MSG_EVNT.CRTD_AT
 
 /*Total time*/
 
-DECLARE @created_at datetime2;
-DECLARE @created_at_end datetime2;
-
-SET @created_at = '2021-08-20 14:10:00'
-SET @created_at_end = '2021-08-20 15:00:00'
-
-
 SELECT
-    COUNT(MSG_HDR.MSG_TYPE)/2,
+    COUNT(MSG_HDR.MSG_TYPE)/2 AS 'Total of Message',
     MSG_HDR.MSG_TYPE,
     MIN(BULK_EVENT.CRTD_AT) AS 'Transform Started',
     MAX(BULK_EVENT.CRTD_AT) AS 'Transform Finished',
     FORMAT(MAX(BULK_EVENT.CRTD_AT) -  MIN(BULK_EVENT.CRTD_AT), 'HH:mm.ss.ff') AS TOTAL_TIME
 FROM CONNECT_MS.MS_BLK_EVNT AS BULK_EVENT JOIN CONNECT_MS.MS_BLK_HDR AS BLK_HDR ON  BULK_EVENT.BLK_HDR_ID =  BLK_HDR.BLK_HDR_ID JOIN CONNECT_MS.MS_MSG_HDR AS MSG_HDR ON BLK_HDR.BLK_SRC_ID LIKE CONCAT('%', MSG_HDR.MSG_ID,'%')
-WHERE BULK_EVENT.CRTD_AT > @created_at and BULK_EVENT.CRTD_AT <  @created_at_end AND BULK_EVENT.STATUS != 'Processed'
-GROUP BY MSG_HDR.MSG_TYPE;
+WHERE BULK_EVENT.CRTD_AT > '2021-08-20 14:10:00' and BULK_EVENT.CRTD_AT <  '2021-08-20 15:00:00' AND BULK_EVENT.STATUS != 'Processed'
+GROUP BY MSG_HDR.MSG_TYPE
+ORDER BY  COUNT(MSG_HDR.MSG_TYPE)/2 ASC;
 
-
-SELECT *
-FROM CONNECT_MS.MS_BLK_EVNT AS BULK_EVENT JOIN CONNECT_MS.MS_BLK_HDR AS BLK_HDR ON  BULK_EVENT.BLK_HDR_ID =  BLK_HDR.BLK_HDR_ID
-WHERE BULK_EVENT.CRTD_AT > @created_at and BULK_EVENT.CRTD_AT < @created_at_end
 
 SELECT
     MSG_HDR.MSG_TYPE,
     BULK_EVENT.BLK_HDR_ID,
     MIN(BULK_EVENT.CRTD_AT) AS 'Transform Started',
     MAX(BULK_EVENT.CRTD_AT) AS 'Transform Finished',
-    BLK_HDR.BLK_ID, FORMAT(MAX(BULK_EVENT.CRTD_AT) -  MIN(BULK_EVENT.CRTD_AT), 'HH:mm.ss.ff') AS TOTAL_TIME
+    BLK_HDR.BLK_ID AS 'MSG_IG',
+    FORMAT(MAX(BULK_EVENT.CRTD_AT) -  MIN(BULK_EVENT.CRTD_AT), 'HH:mm.ss.ff') AS TOTAL_TIME
 FROM CONNECT_MS.MS_BLK_EVNT AS BULK_EVENT JOIN CONNECT_MS.MS_BLK_HDR AS BLK_HDR ON  BULK_EVENT.BLK_HDR_ID =  BLK_HDR.BLK_HDR_ID JOIN CONNECT_MS.MS_MSG_HDR AS MSG_HDR ON BLK_HDR.BLK_SRC_ID LIKE CONCAT('%', MSG_HDR.MSG_ID,'%')
-WHERE BULK_EVENT.CRTD_AT > @created_at and BULK_EVENT.CRTD_AT < @created_at_end AND BULK_EVENT.STATUS != 'Processed'
-GROUP BY BULK_EVENT.BLK_HDR_ID,BLK_HDR.BLK_ID,MSG_HDR.MSG_TYPE;
+WHERE BULK_EVENT.CRTD_AT > '2021-08-20 14:10:00' and BULK_EVENT.CRTD_AT <  '2021-08-20 15:00:00' AND BULK_EVENT.STATUS != 'Processed'
+GROUP BY BULK_EVENT.BLK_HDR_ID,BLK_HDR.BLK_ID,MSG_HDR.MSG_TYPE
+ORDER BY BULK_EVENT.BLK_HDR_ID;
+
+
+
+SELECT
+    BULK_EVENT.BLK_EVNT_ID,
+    BULK_EVENT.BLK_HDR_ID,
+    BULK_EVENT.STATUS,
+    BULK_EVENT.CRTD_AT,
+    BULK_EVENT.BTCH_TASK,
+    BLK_HDR.BLK_HDR_ID,
+    BLK_HDR.CRTD_AT,
+    BLK_HDR.LST_UPDT_AT,
+    BLK_HDR.CRNT_STATUS,
+    BLK_HDR.BLK_ID,
+    BLK_HDR.BLK_TYPE,
+    BLK_HDR.BLK_LOC
+FROM CONNECT_MS.MS_BLK_EVNT AS BULK_EVENT JOIN CONNECT_MS.MS_BLK_HDR AS BLK_HDR ON  BULK_EVENT.BLK_HDR_ID =  BLK_HDR.BLK_HDR_ID
+WHERE BULK_EVENT.CRTD_AT > '2021-08-20 14:19:00' and BULK_EVENT.CRTD_AT <  '2021-08-20 15:00:00'
+order by BULK_EVENT.CRTD_AT ASC;
+
 
 
 /*INGEST SERVICE AND MESSAGE BROKER time of execution*/
@@ -114,7 +143,9 @@ SET @created_at_end = '2021-08-20 15:00:00'
         SELECT MSG_HDR.MSG_TYPE AS 'Type of message',
             MSG_EVNT.CRTD_AT AS 'Ingestion Service Message started',
             MSG_HDR.LST_UPDT_AT AS 'Ingestion Service Message finished',
-            BLK_HDR.BLK_HDR_ID
+            BLK_HDR.BLK_HDR_ID,
+            MSG_HDR.MSG_ID,
+            BLK_HDR.BLK_ID
         FROM CONNECT_MS.MS_MSG_EVNT AS MSG_EVNT
             JOIN CONNECT_MS.MS_MSG_HDR AS MSG_HDR
             ON MSG_EVNT.MSG_HDR_ID = MSG_HDR.MSG_HDR_ID
@@ -124,17 +155,34 @@ SET @created_at_end = '2021-08-20 15:00:00'
                 AND MSG_HDR.MDL_TYPE LIKE '%BYDM%'
         WHERE MSG_EVNT.CRTD_AT > @created_at and MSG_EVNT.CRTD_AT <  @created_at_end
     )
-SELECT ingestService_to_MessageBroker.BLK_HDR_ID,
+SELECT
+    ingestService_to_MessageBroker.BLK_HDR_ID,
     ingestService_to_MessageBroker.[Type of message],
+    ingestService_to_MessageBroker.MSG_ID AS 'Ingest Service MSG_ID',
     ingestService_to_MessageBroker.[Ingestion Service Message started],
     ingestService_to_MessageBroker.[Ingestion Service Message finished],
+    ingestService_to_MessageBroker.BLK_ID AS 'Message Broker BLK_ID',
     MIN(BULK_EVENT.CRTD_AT) AS 'Message broker started',
     MAX(BULK_EVENT.CRTD_AT) AS 'Message broker finished',
     FORMAT(MAX(BULK_EVENT.CRTD_AT) - MIN(ingestService_to_MessageBroker.[Ingestion Service Message started]), 'HH:mm.ss.ff') AS TOTAL_TIME
 FROM ingestService_to_MessageBroker JOIN CONNECT_MS.MS_BLK_EVNT AS BULK_EVENT ON ingestService_to_MessageBroker.BLK_HDR_ID = BULK_EVENT.BLK_HDR_ID
 WHERE  BULK_EVENT.STATUS != 'Processed'
-GROUP BY BULK_EVENT.BLK_HDR_ID,ingestService_to_MessageBroker.BLK_HDR_ID,ingestService_to_MessageBroker.[Type of message],ingestService_to_MessageBroker.[Ingestion Service Message started],ingestService_to_MessageBroker.[Ingestion Service Message finished];
+GROUP BY 
+    BULK_EVENT.BLK_HDR_ID,
+    ingestService_to_MessageBroker.BLK_HDR_ID,
+    ingestService_to_MessageBroker.[Type of message],
+    ingestService_to_MessageBroker.[Ingestion Service Message started],
+    ingestService_to_MessageBroker.[Ingestion Service Message finished],
+    ingestService_to_MessageBroker.MSG_ID,ingestService_to_MessageBroker.BLK_ID;
 
+
+
+
+DECLARE @created_at datetime2;
+DECLARE @created_at_end datetime2;
+
+SET @created_at = '2021-08-20 14:10:00'
+SET @created_at_end = '2021-08-20 15:00:00'
 
 
 ;WITH
@@ -154,13 +202,18 @@ GROUP BY BULK_EVENT.BLK_HDR_ID,ingestService_to_MessageBroker.BLK_HDR_ID,ingestS
                 AND MSG_HDR.MDL_TYPE LIKE '%BYDM%'
         WHERE MSG_EVNT.CRTD_AT > @created_at and MSG_EVNT.CRTD_AT < @created_at_end
     )
-SELECT COUNT(ingestService_to_MessageBroker_Total.[Type of message])/2 AS 'Total of Messages', ingestService_to_MessageBroker_Total.[Type of message], MIN(ingestService_to_MessageBroker_Total.[Ingestion Service Message started]) AS 'Ingestion Service Message started', MAX(ingestService_to_MessageBroker_Total.[Ingestion Service Message finished]) AS 'Ingestion Service Message finished',
+SELECT
+    COUNT(ingestService_to_MessageBroker_Total.[Type of message])/2 AS 'Total of Messages',
+    ingestService_to_MessageBroker_Total.[Type of message],
+    MIN(ingestService_to_MessageBroker_Total.[Ingestion Service Message started]) AS 'Ingestion Service Message started',
+    MAX(ingestService_to_MessageBroker_Total.[Ingestion Service Message finished]) AS 'Ingestion Service Message finished',
     MIN(BULK_EVENT.CRTD_AT) AS 'Message broker started',
     MAX(BULK_EVENT.CRTD_AT) AS 'Message broker finished',
     FORMAT(MAX(BULK_EVENT.CRTD_AT) - MIN(ingestService_to_MessageBroker_Total.[Ingestion Service Message started]), 'HH:mm.ss.ff') AS TOTAL_TIME
 FROM ingestService_to_MessageBroker_Total JOIN CONNECT_MS.MS_BLK_EVNT AS BULK_EVENT ON ingestService_to_MessageBroker_Total.BLK_HDR_ID = BULK_EVENT.BLK_HDR_ID
 WHERE  BULK_EVENT.STATUS != 'Processed'
-GROUP BY ingestService_to_MessageBroker_Total.[Type of message];
+GROUP BY ingestService_to_MessageBroker_Total.[Type of message]
+ORDER BY COUNT(ingestService_to_MessageBroker_Total.[Type of message])/2;
 
 
 
