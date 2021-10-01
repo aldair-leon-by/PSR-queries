@@ -1,18 +1,22 @@
 /*
 
 Author: ALDAIR 
-SEP 7TH, 2021
+
+v1 SEP 7TH, 2021
+v2 OCT 1ST, 2021
+
 
  */
 
 /*INGEST SERVICE AND MESSAGE BROKER time of execution*/
 
 
+
 DECLARE @created_at datetime2;
 DECLARE @created_at_end datetime2;
 
-SET @created_at = '2021-09-14 17:18:11.433'
-SET @created_at_end = '2021-09-14 17:26:11.433'
+SET @created_at = '2021-10-01 00:00:00.000'
+SET @created_at_end = '2021-10-01 01:00:00.000'
 
 ;WITH
     ingestService_to_MessageBroker
@@ -53,7 +57,8 @@ GROUP BY
     ingestService_to_MessageBroker.[Ingestion Service Message started],
     ingestService_to_MessageBroker.[Ingestion Service Message finished],
     ingestService_to_MessageBroker.MSG_ID,ingestService_to_MessageBroker.BLK_ID,
-    ingestService_to_MessageBroker.CRNT_STATUS;
+    ingestService_to_MessageBroker.CRNT_STATUS
+ORDER BY ingestService_to_MessageBroker.[Ingestion Service Message started] ASC;
 
 
 
@@ -61,8 +66,8 @@ GROUP BY
 DECLARE @created_at datetime2;
 DECLARE @created_at_end datetime2;
 
-SET @created_at = '2021-09-14 17:18:11.433'
-SET @created_at_end = '2021-09-14 17:26:11.433'
+SET @created_at = '2021-10-01 00:00:00.000'
+SET @created_at_end = '2021-10-01 01:00:00.000'
 
 
 ;WITH
@@ -94,8 +99,7 @@ SELECT
 FROM ingestService_to_MessageBroker_Total JOIN CONNECT_MS.MS_BLK_EVNT AS BULK_EVENT ON ingestService_to_MessageBroker_Total.BLK_HDR_ID = BULK_EVENT.BLK_HDR_ID
 WHERE  BULK_EVENT.STATUS != 'Processed'
 GROUP BY ingestService_to_MessageBroker_Total.[Type of message],ingestService_to_MessageBroker_Total.CRNT_STATUS
-ORDER BY COUNT(ingestService_to_MessageBroker_Total.[Type of message])/2;
-
+ORDER BY MIN(ingestService_to_MessageBroker_Total.[Ingestion Service Message started]) ASC;
 
 
 
@@ -106,8 +110,8 @@ ORDER BY COUNT(ingestService_to_MessageBroker_Total.[Type of message])/2;
 DECLARE @created_at datetime2;
 DECLARE @created_at_end datetime2;
 
-SET @created_at = '2021-08-20 14:10:00'
-SET @created_at_end = '2021-08-20 15:00:00'
+SET @created_at = '2021-10-01 00:00:00.000'
+SET @created_at_end = '2021-10-01 01:00:00.000'
 
 
 
@@ -137,8 +141,9 @@ SELECT
     AUDIT_TBL.MODIFIED_DATETIME as 'LCT Adapter Finished',
     JSON_Value(DATA_TBL.GS1_header, '$.messageId') AS 'Message Broker_ID',
     FORMAT(AUDIT_TBL.MODIFIED_DATETIME -  AUDIT_TBL.CREATED_DATETIME, 'HH:mm.ss.fff') AS TIME_DIFF
-FROM dbo.LCTA_INBOUND_DATA_TBL AS DATA_TBL JOIN dbo.LCTA_MSG_AUDIT_TBL AS AUDIT_TBL ON AUDIT_TBL.MSG_HDR_REF_ID = DATA_TBL.MSG_HDR_ID
-WHERE DATA_TBL.CREATED_DATETIME  > '2021-09-14 17:18:11.433' and DATA_TBL.CREATED_DATETIME <  '2021-09-14 17:26:11.433';
+FROM dbo.LCTA_INBOUND_DATA_TBL AS DATA_TBL JOIN dbo.LCTA_MSG_AUDIT_TBL AS AUDIT_TBL ON AUDIT_TBL.MSG_HDR_REF_ID = DATA_TBL.MSG_HDR_ID AND JSON_Value(GS1_header, '$.messageId') != 'NULL'
+WHERE DATA_TBL.CREATED_DATETIME  > @created_at and DATA_TBL.CREATED_DATETIME <  @created_at_end 
+ORDER BY AUDIT_TBL.MODIFIED_DATETIME ASC;
 
 
 -- SELECT
@@ -156,16 +161,13 @@ WHERE DATA_TBL.CREATED_DATETIME  > '2021-09-14 17:18:11.433' and DATA_TBL.CREAT
 
 
 SELECT
-    count(MSG_STATUS) 'Number of messages',
-    MSG_TYPE 'Type of messages',
-    MSG_STATUS,
-    min(CREATED_DATETIME) 'LCT Adapter Started',
-    max(MODIFIED_DATETIME) 'LCT Adapter Finished',
-    FORMAT(max(MODIFIED_DATETIME) - min(CREATED_DATETIME),'HH:mm.ss.ff') AS TOTAL_TIME
-FROM LCTA_MSG_AUDIT_TBL  with (nolock)
-WHERE CREATED_DATETIME  > '2021-09-14 17:18:11.433' AND CREATED_DATETIME < '2021-09-14 19:30:11.433'
-GROUP BY MSG_STATUS,msg_type;
-
-
-select * from LCTA_MSG_AUDIT_TBL  where --MSG_TYPE IN ('transportChainMessage', 'transportInstructionMessage','CustomerOrder') 
- CREATED_DATETIME  > '2021-09-14 17:18:11.433' AND CREATED_DATETIME < '2021-09-14 19:30:11.433'
+    count(AUDIT_TBL.MSG_STATUS) 'Number of messages',
+    AUDIT_TBL.MSG_TYPE 'Type of messages',
+    AUDIT_TBL.MSG_STATUS,
+    min(AUDIT_TBL.CREATED_DATETIME) 'LCT Adapter Started',
+    max(AUDIT_TBL.MODIFIED_DATETIME) 'LCT Adapter Finished',
+    FORMAT(max(AUDIT_TBL.MODIFIED_DATETIME) - min(AUDIT_TBL.CREATED_DATETIME),'HH:mm.ss.ff') AS TOTAL_TIME
+FROM dbo.LCTA_INBOUND_DATA_TBL AS DATA_TBL JOIN dbo.LCTA_MSG_AUDIT_TBL AS AUDIT_TBL ON AUDIT_TBL.MSG_HDR_REF_ID = DATA_TBL.MSG_HDR_ID AND JSON_Value(GS1_header, '$.messageId') != 'NULL'
+WHERE DATA_TBL.CREATED_DATETIME  > @created_at and DATA_TBL.CREATED_DATETIME <  @created_at_end
+GROUP BY AUDIT_TBL.MSG_STATUS,AUDIT_TBL.msg_type
+ORDER BY min(AUDIT_TBL.CREATED_DATETIME);
