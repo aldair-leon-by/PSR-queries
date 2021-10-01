@@ -161,7 +161,7 @@ ORDER BY AUDIT_TBL.MODIFIED_DATETIME ASC;
 
 
 SELECT
-    count(AUDIT_TBL.MSG_STATUS) 'Number of messages',
+    count(AUDIT_TBL.MSG_STATUS) 'Number of message',
     AUDIT_TBL.MSG_TYPE 'Type of messages',
     AUDIT_TBL.MSG_STATUS,
     min(AUDIT_TBL.CREATED_DATETIME) 'LCT Adapter Started',
